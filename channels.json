@@ -1,0 +1,222 @@
+[
+  {
+    "name": "Dw English",
+    "desc": "German international news",
+    "url": "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/master.m3u8"
+  },
+  {
+    "name": "KZN",
+    "desc": "Entertainment valued",
+    "url": "https://cdn.freevisiontv.co.za/sttv/smil:1kzn.stream.smil/playlist.m3u8"
+  },
+  {
+    "name": "24 Hour Free Movies",
+    "desc": "Free classic movies 24/7",
+    "url": "https://d1j2u714xk898n.cloudfront.net/scheduler/scheduleMaster/145.m3u8"
+  },
+  {
+    "name": "Africa24English",
+    "desc": "Africa24 English is a 24/7 English-language news channel delivering African and global news from an African perspective.",
+    "url": "https://edge20.vedge.infomaniak.com/livecast/ik:africa24english/manifest.m3u8"
+  },
+  {
+    "name": "Court Tv",
+    "desc": "Live courtroom trials, legal analysis, and true-crime coverage.",
+    "url": "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01438-ewscrippscompan-courttv-tablo/playlist.m3u8"
+  },
+  {
+    "name": "Bounce XL",
+    "desc": "Hit movies, series, and urban entertainment.",
+    "url": "https://cdn-uw2-prod.tsv2.amagi.tv/linear/amg01438-ewscrippscompan-bouncexl-tablo/playlist.m3u8"
+  },
+  {
+    "name": "CineLife",
+    "desc": "Feel-good movies, lifestyle shows, and entertainment documentaries.",
+    "url": "https://magnolia-cinelife.amagi.tv/hls/amagi_hls_data_magnoliaA-cinelife-oando/CDN/playlist.m3u8"
+  },
+  {
+    "name": "BBC America",
+    "desc": "Popular British series, documentaries, and entertainment.",
+    "url": "https://bcovlive-a.akamaihd.net/7f5ec16d102f4b5d92e8e27bc95ff424/us-east-1/6240731308001/playlist.m3u8"
+  },
+  {
+    "name": "AMG TV",
+    "desc": "Independent movies, talk shows, and lifestyle programming.",
+    "url": "https://2-fss-2.streamhoster.com/pl_138/201660-1270634-1/playlist.m3u8"
+  },
+  {
+    "name": "Bloomberg Tv Us",
+    "desc": "Live U.S. financial news, stock markets, and expert analysis",
+    "url": "https://www.bloomberg.com/media-manifest/streams/us.m3u8"
+  },
+  {
+    "name": "BEK TV SPORTS",
+    "desc": "Regional U.S. sports, local games, and live events.",
+    "url": "https://cdn3.wowza.com/5/ZWQ1K2NYTmpFbGsr/BEK-WOWZA-1/smil:BEKPRIMEW.smil/playlist.m3u8"
+  },
+  {
+    "name": "BBC One South West HD",
+    "desc": "UK general entertainment channel with news, shows, documentaries, and live events (HD quality).",
+    "url": "https://stream.nexyl.uk/ee971134-115e-4418-8d1d-69dff7d4c6eb.m3u8"
+  },
+  {
+    "name": "BBC Three / CBBC",
+    "desc": "Children & family content, animation, and educational shows.",
+    "url": "https://viamotionhsi.netplus.ch/live/eds/bbc3cbbc/browser-HLS8/bbc3cbbc.m3u8"
+  },
+  {
+    "name": "BBC Two",
+    "desc": "BBC channel focused on documentaries, culture, and arts programs.",
+    "url": "https://viamotionhsi.netplus.ch/live/eds/bbc2/browser-HLS8/bbc2.m3u8"
+  },
+  {
+    "name": "BEK TV NEWS",
+    "desc": "Regional US news channel, live local news and updates.",
+    "url": "https://cdn3.wowza.com/5/ZWQ1K2NYTmpFbGsr/BEK-WOWZA-1/smil:BEKPRIMEeast.smil/playlist.m3u8"
+  },
+  {
+    "name": "BET jams",
+    "desc": "Music channel, mostly hip-hop and R&B videos and live events.",
+    "url": "https://fl1.moveonjoy.com/BET_Jams/index.m3u8"
+  },
+  {
+    "name": "BET soul",
+    "desc": "Channel focused on soul, R&B, and classic music programming.",
+    "url": "https://fl1.moveonjoy.com/BET_SOUL/index.m3u8"
+  },
+  {
+    "name": "Long Beach Television",
+    "desc": "City council meetings, local news, and civic programming.",
+    "url": "https://edge-f.swagit.com/live/longbeachca/live-3-a/playlist.m3u8"
+  },
+  {
+    "name": "Maverick Black Cinema",
+    "desc": "Movies highlighting Black creators, actors, and stories.",
+    "url": "https://maverick-maverick-black-cinema-3-us.roku.wurl.tv/playlist.m3u8"
+  },
+  {
+    "name": "MGM+ Drive-In",
+    "desc": "24/7 movies featuring classics and modern blockbusters.",
+    "url": "https://fl1.moveonjoy.com/EPIX_DRIVE_IN/index.m3u8"
+  },
+  {
+    "name": "MGM+ East",
+    "desc": "Main MGM+ channel with premium movies and original series.",
+    "url": "https://fl1.moveonjoy.com/EPIX/index.m3u8"
+  },
+  {
+    "name": "MGM+ Marquee",
+    "desc": "Curated selection of hit films and MGM originals.",
+    "url": "https://fl1.moveonjoy.com/EPIX_2/index.m3u8"
+  },
+  {
+    "name": "MHZ",
+    "desc": "International crime, mystery, and drama television series.",
+    "url": "https://mhz-samsung-linear-ca.samsung.wurl.tv/playlist.m3u8"
+  },
+  {
+    "name": "MBC FM",
+    "desc": "Arabic music and radio-style entertainment channel.",
+    "url": "https://dbbv9umqcd7cs.cloudfront.net/out/v1/db15b75c3cc0400c91961468d6a232ac/index.m3u8"
+  },
+  {
+    "name": "MBC Loud",
+    "desc": "Youth-focused music channel featuring hip-hop and trending hits.",
+    "url": "https://d2lfa0y84k5bwn.cloudfront.net/out/v1/86dd4506a70c4d7fb35e2ab50296d9a3/index.m3u8"
+  },
+  {
+    "name": "Mezzo",
+    "desc": "Classical music, jazz, opera, and live concert performances.",
+    "url": "https://viamotionhsi.netplus.ch/live/eds/mezzo/browser-HLS8/mezzo.m3u8"
+  },
+  {
+    "name": "Martin County MCTV",
+    "desc": "Local government meetings and public service announcements.",
+    "url": "https://cdn3.wowza.com/5/UWpORHhLSEs5SkJs/martin/G0074_002/playlist.m3u8"
+  },
+  {
+    "name": "Miami Beach TV",
+    "desc": "City government coverage, tourism, and community information.",
+    "url": "https://edge-f.swagit.com/live/miamibeachfl/live-1-a/playlist.m3u8"
+  },
+  {
+    "name": "Midpen Media Arts",
+    "desc": "Local arts, culture, and lifestyle programming.",
+    "url": "https://5c2974786200d.streamlock.net/live-chan30/ngrp:ch30_all/playlist.m3u8"
+  },
+  {
+    "name": "Midpen Media Diversity",
+    "desc": "Multicultural community programming and local voices.",
+    "url": "https://5c2974786200d.streamlock.net/live-chan75/ngrp:ch75_all/playlist.m3u8"
+  },
+  {
+    "name": "Midpen Media Government",
+    "desc": "Government meetings and public affairs coverage.",
+    "url": "https://5c2974786200d.streamlock.net/live-chan26/ngrp:ch26_all/playlist.m3u8"
+  },
+  {
+    "name": "Mana Church Online",
+    "desc": "Live church services and Christian inspirational content.",
+    "url": "https://w2.manasat.com/church-online/smil:church-online.smil/playlist.m3u8"
+  },
+  {
+    "name": "Made in Hollywood",
+    "desc": "Movie news, celebrity interviews, and behind-the-scenes Hollywood content.",
+    "url": "https://connection3-ent-nz.samsung.wurl.tv/playlist.m3u8"
+  },
+  {
+    "name": "Maverick Black Cinema",
+    "desc": "Movies celebrating Black stories, creators, and culture.",
+    "url": "https://maverick-maverick-black-cinema-3-us.roku.wurl.tv/playlist.m3u8"
+  },
+  {
+    "name": "Long Beach Television",
+    "desc": "City council meetings, local news, and civic programming.",
+    "url": "https://edge-f.swagit.com/live/longbeachca/live-3-a/playlist.m3u8"
+  },
+  {
+    "name": "LA Local Channel 36",
+    "desc": "Educational and community television from Los Angeles.",
+    "url": "https://reflect-channel36-la.cablecast.tv/live-3/live/stream-1/live.m3u8"
+  },
+  {
+    "name": "LoveworldSAT",
+    "desc": "Global Christian satellite channel with live services and teachings.",
+    "url": "https://cdnstack.internetmultimediaonline.org/lwsat/lwsat.stream/index.m3u8"
+  },
+  {
+    "name": "Lone Star",
+    "desc": "Classic western movies and TV series streaming 24/7.",
+    "url": "https://lonestar-rakuten.amagi.tv/playlist.m3u8"
+  },
+  {
+    "name": "Mad Dog and Merrill",
+    "desc": "Cooking and grilling show focused on outdoor food and lifestyle.",
+    "url": "https://rpn.bozztv.com/gusa/gusa-mwg/index.m3u8"
+  },
+  {
+    "name": "Made in Hollywood NZ",
+    "desc": "Entertainment news, red carpet events, and celebrity interviews.",
+    "url": "https://connection3-ent-nz.samsung.wurl.tv/playlist.m3u8"
+  },
+  {
+    "name": "Maverick Black Cinema",
+    "desc": "Feature films highlighting Black culture and storytellers.",
+    "url": "https://maverick-maverick-black-cinema-3-us.roku.wurl.tv/playlist.m3u8"
+  },
+  {
+    "name": "MeTV",
+    "desc": "Classic American television shows from the 1950s to 1990s.",
+    "url": "https://fl61.moveonjoy.com/ME_TV/index.m3u8"
+  },
+  {
+    "name": "Mezzo",
+    "desc": "International classical music, jazz, and opera performances.",
+    "url": "https://viamotionhsi.netplus.ch/live/eds/mezzo/browser-HLS8/mezzo.m3u8"
+  },
+  {
+    "name": "MHZ",
+    "desc": "International crime, mystery, and detective drama channel.",
+    "url": "https://mhz-samsung-linear-ca.samsung.wurl.tv/playlist.m3u8"
+  }
+]
