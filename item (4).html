@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live TV Feed</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+  /* Base styles remain the same */
+  html,body{
+    margin:0;
+    padding:0;
+    height:100%;
+    background:black;
+    overflow:hidden;
+    font-family:Arial,sans-serif;
+    position:relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: 
+      radial-gradient(circle at 20% 80%, rgba(120, 219, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(120, 219, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(200, 240, 255, 0.1) 0%, transparent 60%);
+    z-index: 1;
+  }
+
+
+
+  @keyframes fall {
+    to {
+      transform: translateY(100vh) translateX(var(--drift));
+    }
+  }
+
+  .warm-glow {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(255, 200, 150, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .container{
+    height:100vh;
+    overflow-y:scroll;
+    scroll-snap-type:y mandatory;
+    scroll-behavior:smooth;
+    -webkit-overflow-scrolling:touch;
+    position: relative;
+    z-index: 3;
+  }
+  
+  .channel{
+    height:100vh;
+    width:100vw;
+    position:relative;
+    scroll-snap-align:start;
+    scroll-snap-stop:always;
+    box-shadow: 0 0 40px rgba(100, 200, 255, 0.2) inset;
+    transition: transform 0.5s ease;
+  }
+
+  video{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    background:transparent !important;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+  }
+  video.playing {
+    opacity: 1;
+  }
+
+  .loading{
+    position:absolute;
+    inset:0;
+    background:rgba(0,0,0,0.35);
+    color:white;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:26px;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.6s ease;
+    z-index: 5;
+    text-align: center;
+  }
+  .loading.show{
+    opacity:1;
+    pointer-events:all;
+  }
+  .loading-text {
+    font-family: 'Georgia', serif;
+    font-weight: normal;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+    animation: pulse 2.5s ease-in-out infinite, typing 3.5s steps(12) infinite;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 3px solid rgba(0, 255, 255, 0.8);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes typing {
+    0% { width: 0; }
+    50% { width: 140px; }
+    90%, 100% { width: 140px; }
+  }
+
+  .overlay{
+    position:absolute;
+    bottom:20px;
+    left:20px;
+    color:white;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 0 0 5px black;
+    z-index: 4;
+  }
+  .live{
+    background:rgba(255,0,0,0.8);
+    padding:4px 12px;
+    border-radius:8px;
+    font-size:12px;
+    box-shadow: 0 0 15px rgba(255,0,0,0.6);
+  }
+  .name{
+    font-size:24px;
+    margin-top:8px;
+    font-weight: bold;
+    text-shadow: 0 0 20px rgba(100, 255, 255, 0.9);
+  }
+  .desc{opacity:.9; text-shadow: 0 0 10px black;}
+
+  /* Search bar */
+  .search-bar{
+    position:fixed;
+    top:12px;
+    left:50%;
+    transform:translateX(-50%);
+    width:80%;
+    max-width:420px;
+    background:rgba(255,255,255,.15);
+    backdrop-filter:blur(12px);
+    border-radius:0px;
+    padding:10px 18px;
+    z-index:2000;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    opacity:1;
+    transition:opacity .4s ease;
+    box-shadow: 0 0 20px rgba(100, 255, 255, 0.4);
+    border: 1px solid rgba(100, 255, 255, 0.2);
+  }
+ 
+  .search-bar input{
+    background:none;
+    border:none;
+    outline:none;
+    color:white;
+    width:100%;
+    font-size:16px;
+  }
+
+  
+  /* Popup */
+  #popup {
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.7);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:9999;
+    backdrop-filter: blur(5px);
+  }
+  #popup > div {
+    background:#0f1a2b;
+    color:white;
+    padding:26px;
+    border-radius:20px;
+    max-width:340px;
+    width:85%;
+    text-align:center;
+    box-shadow:0 0 40px rgba(100, 255, 255, 0.6);
+    border: 1px solid rgba(100, 255, 255, 0.3);
+    animation:pop .35s ease;
+  }
+  .popup-warning { background:#ffcc00; box-shadow:0 0 35px rgba(255,215,0,.7); color:#000; }
+  .popup-error   { background:#ff4444; box-shadow:0 0 35px rgba(255,0,0,.7); }
+
+  @keyframes pop{
+    from{transform:scale(.8);opacity:0}
+    to{transform:scale(1);opacity:1}
+  }
+
+  /* NEW: Vertical Control Bar */
+  .control-column {
+    position: fixed;
+    top: 53%;
+    right: 20px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 100;
+    background:rgba(255,255,255,.15);
+    backdrop-filter: blur(15px);
+    padding: 20px 12px;
+    border-radius: 25px;
+    border: 1px solid rgba(100, 255, 255, 0.3);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s ease;
+    opacity: 1;
+  }
+  
+  .control-column.hidden {
+    transform: translateY(-50%) translateX(calc(100% + 20px));
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .control-column-toggle {
+    position: fixed;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(15px);
+    border: 1px solid rgba(100, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #0ff;
+    font-size: 22px;
+    cursor: pointer;
+    z-index: 99;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+    transition: all 0.3s ease;
+  }
+  
+  .control-column-toggle:hover {
+    background: rgba(0, 20, 40, 0.8);
+    transform: translateY(-50%) scale(1.1);
+  }
+  
+  .control-column-toggle.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .control-column-toggle i {
+    transition: transform 0.3s ease;
+  }
+  
+  /* NEW: Hide Controls Button (inside control column) */
+  .hide-controls-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-top: 5px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 5px;
+  }
+  
+  .hide-controls-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(1.08);
+  }
+  
+  .control-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+  }
+  
+  .control-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(1.08);
+  }
+  
+  .control-btn.active {
+    background: rgba(0, 255, 255, 0.4);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+  }
+  
+  /* NEW: Volume Control */
+  .volume-container {
+    position: relative;
+  }
+  
+  .volume-slider {
+    position: absolute;
+    left: -140px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 120px;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    outline: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  
+  .volume-container:hover .volume-slider {
+    opacity: 1;
+    pointer-events: all;
+  }
+  
+  .volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #0ff;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  }
+  
+  .volume-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #0ff;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+  }
+  
+  /* NEW: Channel Sidebar */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -300px;
+    width: 280px;
+    height: 100%;
+    background: rgba(10, 20, 35, 0.95);
+    backdrop-filter: blur(15px);
+    z-index: 2001;
+    padding: 80px 15px 20px;
+    overflow-y: auto;
+    transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 40px rgba(0, 0, 0, 0.7);
+    border-right: 1px solid rgba(100, 255, 255, 0.2);
+  }
+  
+  .sidebar.open {
+    left: 0;
+  }
+  
+  .sidebar-header {
+    color: white;
+    font-size: 22px;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(100, 255, 255, 0.3);
+    text-align: center;
+  }
+  
+  .channel-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .channel-item:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateX(5px);
+  }
+  
+  .channel-item.active {
+    background: rgba(0, 255, 255, 0.25);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.4);
+  }
+  
+  .channel-item .live-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: red;
+    margin-right: 10px;
+    box-shadow: 0 0 8px red;
+  }
+  
+  .channel-item .channel-name {
+    flex: 1;
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .favorite-btn {
+    background: none;
+    border: none;
+    color: gold;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 5px;
+    min-width: 30px;
+  }
+  
+  /* NEW: Quality Selector */
+  .quality-menu {
+    position: absolute;
+    left: -160px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(10, 20, 35, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 10px 0;
+    min-width: 150px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(100, 255, 255, 0.3);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%) translateX(-10px);
+    transition: all 0.3s;
+    z-index: 101;
+  }
+  
+  .quality-menu.show {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(-50%) translateX(0);
+  }
+  
+  .quality-item {
+    padding: 12px 20px;
+    color: white;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  
+  .quality-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .quality-item.active {
+    background: rgba(0, 255, 255, 0.3);
+    color: #0ff;
+  }
+  
+  /* NEW: Stream Info Overlay */
+  .stream-info {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    padding: 12px 18px;
+    border-radius: 10px;
+    color: #0ff;
+    font-family: monospace;
+    font-size: 12px;
+    z-index: 99;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    max-width: 200px;
+  }
+  
+  .stream-info.show {
+    opacity: 1;
+  }
+  
+  /* NEW: Theater Mode */
+  .theater-mode {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 99;
+    pointer-events: none;
+  }
+  
+  .theater-mode.active video {
+    object-fit: cover !important;
+  }
+  
+  /* NEW: Sleep Timer Panel */
+  .sleep-timer {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 20, 35, 0.95);
+    backdrop-filter: blur(15px);
+    padding: 30px;
+    border-radius: 20px;
+    color: white;
+    z-index: 2002;
+    min-width: 280px;
+    box-shadow: 0 0 50px rgba(0, 255, 255, 0.4);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    display: none;
+  }
+  
+  .sleep-timer.show {
+    display: block;
+  }
+  
+  .timer-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0;
+    justify-content: center;
+  }
+  
+  .timer-btn {
+    padding: 10px 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .timer-btn:hover {
+    background: rgba(0, 255, 255, 0.3);
+  }
+  
+  .timer-btn.active {
+    background: rgba(0, 255, 255, 0.5);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+  }
+  
+  /* NEW: Combined Fullscreen/Landscape Mode */
+  .landscape-mode {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+    z-index: 9998;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .landscape-mode.active {
+    display: flex;
+  }
+  
+  .landscape-container {
+    width: 100vh;
+    height: 100vw;
+    transform: rotate(90deg) translateY(-100vh);
+    transform-origin: top left;
+    position: relative;
+  }
+  
+  .landscape-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: transparent;
+    opacity: 1;
+  }
+  
+  .landscape-overlay {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    color: white;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 0 0 5px black;
+    z-index: 4;
+    transform: rotate(-90deg) translateX(-100%);
+    transform-origin: bottom left;
+  }
+  
+  .landscape-controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 12px;
+    z-index: 9999;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(15px);
+    padding: 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(100, 255, 255, 0.3);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+    transform: rotate(-90deg) translateX(50%);
+    transform-origin: bottom right;
+  }
+  
+  .landscape-control-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: none;
+    color: white;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .landscape-control-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(1.08);
+  }
+  
+  .landscape-control-btn.active {
+    background: rgba(0, 255, 255, 0.4);
+    box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+  }
+  
+  /* Rotate hint for landscape mode */
+  .rotate-hint {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: white;
+    text-align: center;
+    padding: 20px;
+  }
+  
+  .rotate-hint.show {
+    display: flex;
+  }
+  
+  .rotate-hint i {
+    font-size: 80px;
+    margin-bottom: 30px;
+    color: #0ff;
+    animation: rotatePhone 2s ease-in-out infinite;
+  }
+  
+  @keyframes rotatePhone {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+  }
+  
+  /* Mobile responsiveness */
+  @media (max-width: 768px) {
+    .control-column {
+      right: 10px;
+      padding: 15px 10px;
+      gap: 10px;
+      border-radius: 20px;
+    }
+    
+    .control-btn {
+      width: 45px;
+      height: 45px;
+      font-size: 18px;
+    }
+    
+    .hide-controls-btn {
+      width: 45px;
+      height: 45px;
+      font-size: 18px;
+    }
+    
+    .control-column-toggle {
+      right: 10px;
+      width: 45px;
+      height: 45px;
+      font-size: 20px;
+    }
+    
+    .volume-slider {
+      left: -130px;
+      width: 100px;
+    }
+    
+    .quality-menu {
+      left: -150px;
+      min-width: 130px;
+    }
+    
+    .sidebar {
+      width: 85%;
+      left: -100%;
+    }
+    
+    .channel-item {
+      padding: 10px;
+    }
+    
+    .search-bar {
+      width: 85%;
+    }
+    
+    .stream-info {
+      top: 70px;
+      right: 10px;
+      font-size: 10px;
+      padding: 8px 12px;
+      max-width: 160px;
+    }
+    
+    .overlay {
+      bottom: 15px;
+      left: 15px;
+      max-width: calc(100% - 100px);
+    }
+    
+    .name {
+      font-size: 20px;
+    }
+    
+    .landscape-container {
+      width: 100vh;
+      height: 100vw;
+    }
+    
+    .landscape-controls {
+      bottom: 15px;
+      right: 15px;
+      padding: 12px;
+      gap: 10px;
+    }
+    
+    .landscape-control-btn {
+      width: 42px;
+      height: 42px;
+      font-size: 16px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .control-column {
+      right: 8px;
+      padding: 12px 8px;
+      gap: 8px;
+    }
+    
+    .control-btn {
+      width: 42px;
+      height: 42px;
+      font-size: 16px;
+    }
+    
+    .hide-controls-btn {
+      width: 42px;
+      height: 42px;
+      font-size: 16px;
+    }
+    
+    .control-column-toggle {
+      right: 8px;
+      width: 42px;
+      height: 42px;
+      font-size: 18px;
+    }
+    
+    .volume-slider {
+      left: -110px;
+      width: 80px;
+    }
+    
+    .quality-menu {
+      left: -120px;
+      min-width: 110px;
+    }
+    
+    .overlay {
+      bottom: 10px;
+      left: 10px;
+    }
+    
+    .name {
+      font-size: 18px;
+    }
+    
+    .live {
+      font-size: 10px;
+      padding: 3px 8px;
+    }
+    
+    .desc {
+      font-size: 14px;
+    }
+    
+    .stream-info {
+      top: 60px;
+      right: 5px;
+      font-size: 9px;
+      padding: 6px 10px;
+      max-width: 140px;
+    }
+    
+    .landscape-container {
+      width: 100vh;
+      height: 100vw;
+    }
+    
+    .landscape-controls {
+      bottom: 10px;
+      right: 10px;
+      padding: 10px;
+      gap: 8px;
+    }
+    
+    .landscape-control-btn {
+      width: 40px;
+      height: 40px;
+      font-size: 15px;
+    }
+  }
+  
+  /* Very small screens */
+  @media (max-width: 360px) {
+    .control-column {
+      right: 5px;
+    }
+    
+    .control-btn {
+      width: 38px;
+      height: 38px;
+      font-size: 15px;
+    }
+    
+    .hide-controls-btn {
+      width: 38px;
+      height: 38px;
+      font-size: 15px;
+    }
+    
+    .control-column-toggle {
+      right: 5px;
+      width: 38px;
+      height: 38px;
+    }
+    
+    .overlay {
+      bottom: 8px;
+      left: 8px;
+    }
+    
+    .name {
+      font-size: 16px;
+    }
+    
+    .landscape-controls {
+      bottom: 8px;
+      right: 8px;
+    }
+    
+    .landscape-control-btn {
+      width: 36px;
+      height: 36px;
+      font-size: 14px;
+    }
+  }
+  
+  /* Portrait orientation */
+  @media (orientation: portrait) {
+    .landscape-mode.active ~ .rotate-hint {
+      display: flex;
+    }
+  }
+  
+  /* Landscape orientation */
+  @media (orientation: landscape) {
+    .rotate-hint {
+      display: none !important;
+    }
+    
+    .landscape-container {
+      width: 100vw;
+      height: 100vh;
+      transform: none;
+    }
+    
+    .landscape-overlay {
+      transform: none;
+    }
+    
+    .landscape-controls {
+      transform: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="warm-glow"></div>
+
+<!-- Popup -->
+<div id="popup">
+  <div>
+    <h2 id="pTitle" style="margin-top:0;"></h2>
+    <p id="pText" style="opacity:.9;"></p>
+    <button id="pBtn" style="margin-top:14px;padding:10px 24px;background:#0ff;color:#000;border:none;border-radius:14px;font-weight:bold;cursor:pointer;box-shadow:0 0 15px rgba(0,255,255,0.8);">Close</button>
+  </div>
+</div>
+
+<!-- Rotate Hint -->
+<div class="rotate-hint" id="rotateHint">
+  <i class="fas fa-rotate-right"></i>
+  <h2>Rotate Your Device</h2>
+  <p>Turn on device rotation<br> to switch to <br>landscape mode</p>
+  <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">Or tap "Exit" to return to portrait</p>
+</div>
+
+<!-- Search bar -->
+<div class="search-bar" id="searchBar">
+  🔍
+  <input id="searchInput" placeholder="Search channels...">
+</div>
+
+
+<!-- NEW: Control Column Toggle Button -->
+<div class="control-column-toggle" id="controlToggle">
+  <i class="fas fa-chevron-left"></i>
+</div>
+
+<!-- NEW: Vertical Control Column -->
+<div class="control-column" id="controlColumn">
+  <div class="volume-container">
+    <button class="control-btn" id="volumeBtn" title="Volume">
+      <i class="fas fa-volume-up"></i>
+    </button>
+    <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="1">
+  </div>
+  
+  <div class="quality-container">
+    <button class="control-btn" id="qualityBtn" title="Quality">
+      <i class="fas fa-tachometer-alt"></i>
+    </button>
+    <div class="quality-menu" id="qualityMenu">
+      <div class="quality-item" data-quality="auto">Auto</div>
+      <div class="quality-item" data-quality="1080">1080p</div>
+      <div class="quality-item" data-quality="720">720p</div>
+      <div class="quality-item" data-quality="480">480p</div>
+      <div class="quality-item" data-quality="360">360p</div>
+    </div>
+  </div>
+  
+
+  
+  <!-- NEW: Combined Fullscreen/Landscape Button -->
+  <button class="control-btn" id="fullscreenLandscapeBtn" title="Fullscreen/Landscape">
+    <i class="fas fa-expand" id="fullscreenIcon"></i>
+  </button>
+  
+  <button class="control-btn" id="theaterBtn" title="Theater Mode">
+    <i class="fas fa-film"></i>
+  </button>
+  
+  <button class="control-btn" id="infoBtn" title="Stream Info">
+    <i class="fas fa-info-circle"></i>
+  </button>
+  
+  <button class="control-btn" id="sleepBtn" title="Sleep Timer">
+    <i class="fas fa-moon"></i>
+  </button>
+  
+  <button class="control-btn" id="shareBtn" title="Share Channel">
+    <i class="fas fa-share-alt"></i>
+  </button>
+  
+  <button class="control-btn" id="favoriteBtn" title="Add to Favorites">
+    <i class="far fa-star"></i>
+  </button>
+  
+  <button class="control-btn" id="sidebarBtn" title="Channel List">
+    <i class="fas fa-bars"></i>
+  </button>
+  
+  <!-- NEW: Hide Controls Button -->
+  <button class="hide-controls-btn" id="hideControlsBtn" title="Hide Controls">
+    <i class="fas fa-chevron-right"></i>
+  </button>
+</div>
+
+<!-- Stream Info -->
+<div class="stream-info" id="streamInfo">
+  <div>Bitrate: <span id="bitrate">--</span></div>
+  <div>Resolution: <span id="resolution">--</span></div>
+  <div>Buffer: <span id="buffer">--</span></div>
+  <div>FPS: <span id="fps">--</span></div>
+</div>
+
+<!-- Theater Mode Overlay -->
+<div class="theater-mode" id="theaterMode"></div>
+
+<!-- NEW: Landscape Mode -->
+<div class="landscape-mode" id="landscapeMode">
+  <div class="landscape-container" id="landscapeContainer">
+    <!-- Video will be cloned here -->
+  </div>
+  <div class="landscape-overlay" id="landscapeOverlay">
+    <span class="live">LIVE</span>
+    <div class="name" id="landscapeChannelName">Channel Name</div>
+    <div class="desc" id="landscapeChannelDesc">Channel Description</div>
+  </div>
+  <div class="landscape-controls" id="landscapeControls">
+    <button class="landscape-control-btn" id="landscapeVolumeBtn" title="Volume">
+      <i class="fas fa-volume-up"></i>
+    </button>
+  
+      <i class="fas fa-clone"></i>
+    </button>
+    <button class="landscape-control-btn" id="landscapeExitBtn" title="Exit Landscape">
+      <i class="fas fa-times"></i>
+    </button>
+  </div>
+</div>
+
+<!-- Sleep Timer Panel -->
+<div class="sleep-timer" id="sleepTimer">
+  <h3 style="margin-top:0;text-align:center;">Sleep Timer</h3>
+  <div class="timer-options">
+    <button class="timer-btn" data-minutes="5">5 min</button>
+    <button class="timer-btn" data-minutes="15">15 min</button>
+    <button class="timer-btn" data-minutes="30">30 min</button>
+    <button class="landscape-control-btn" data-minutes="60">60 min</button>
+    <button class="landscape-control-btn" data-minutes="90">90 min</button>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:15px;">
+    <input type="number" id="customTimer" placeholder="Custom minutes" style="flex:1;padding:10px;border-radius:8px;border:none;background:rgba(255,255,255,0.1);color:white;">
+    <button class="timer-btn" id="setCustomTimer">Set</button>
+  </div>
+  <div style="text-align:center;margin-top:20px;">
+    <button class="timer-btn" id="cancelTimer" style="background:rgba(255,50,50,0.7);">Cancel Timer</button>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <i class="fas fa-satellite-dish" style="margin-right:10px;"></i>
+    Channels
+  </div>
+  <div id="channelList"></div>
+</div>
+
+<!-- Main Content -->
+<div class="container" id="feed"></div>
+
+<script>
+
+// Global variables
+const feed = document.getElementById('feed');
+let channels = [];
+let activeVideo = null;
+let activeChannelIndex = 0;
+let favorites = JSON.parse(localStorage.getItem('tvFavorites')) || [];
+let sleepTimer = null;
+let theaterMode = false;
+let landscapeMode = false;
+let controlColumnVisible = true;
+let controlAutoHideTimeout;
+let originalVideo = null;
+
+// HLS config
+const hlsConfig = {
+  lowLatencyMode: true,
+  liveSyncDurationCount: 2,
+  liveMaxLatencyDurationCount: 4,
+  maxLiveSyncPlaybackRate: 1.15,
+  maxBufferLength: 10,
+  maxMaxBufferLength: 15,
+  maxBufferSize: 30 * 1000 * 1000,
+  backBufferLength: 5,
+  startLevel: -1,
+  abrEwmaDefaultEstimate: 1000000,
+  initialLiveManifestSize: 2,
+  enableWorker: true,
+  nudgeOffset: 0.05,
+  nudgeMaxRetry: 15
+};
+
+// Intersection Observer
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    const section = entry.target;
+    const video = section.querySelector('video');
+    const loading = section.querySelector('.loading');
+    let hls = section._hls;
+
+    if (entry.intersectionRatio >= 0.3) {
+      loading.classList.add('show');
+
+      if (!hls && video.dataset.url) {
+        if (Hls.isSupported()) {
+          hls = new Hls(hlsConfig);
+          hls.loadSource(video.dataset.url);
+          hls.attachMedia(video);
+          section._hls = hls;
+
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(() => {});
+          });
+
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            if (data.fatal) {
+              console.error('HLS fatal error:', data);
+              loading.innerHTML = '<div style="font-size:20px;">Stream error<br>Try scrolling away and back</div>';
+            }
+          });
+
+          // Stream info updates
+          hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+            updateStreamInfo(hls, video);
+          });
+        } else {
+          video.src = video.dataset.url;
+          video.load();
+          video.play().catch(() => {});
+        }
+      } else if (hls) {
+        hls.startLoad();
+      }
+
+      video.onplaying = () => {
+        video.classList.add('playing');
+        loading.classList.remove('show');
+        updateActiveChannel(section);
+      };
+      video.onwaiting = () => loading.classList.add('show');
+      video.onpause = () => video.classList.remove('playing');
+      video.onerror = () => {
+        loading.innerHTML = '<div style="font-size:20px;">Failed to load stream</div>';
+      };
+
+      if (entry.intersectionRatio >= 0.85) {
+        if (video !== activeVideo) {
+          activeVideo = video;
+          originalVideo = video;
+          document.querySelectorAll('video').forEach(v => {
+            if (v === video) {
+              v.muted = false;
+              v.volume = parseFloat(localStorage.getItem('tvVolume') || '1');
+              v.play().then(() => {
+                v.classList.add('playing');
+                loading.classList.remove('show');
+              }).catch(() => {});
+            } else {
+              v.pause();
+              v.muted = true;
+              v.classList.remove('playing');
+            }
+          });
+        }
+      }
+    } else {
+      if (hls) hls.stopLoad();
+      video.pause();
+      video.classList.remove('playing');
+      if (video === activeVideo && !landscapeMode) {
+        activeVideo = null;
+        originalVideo = null;
+      }
+      loading.classList.remove('show');
+    }
+  });
+}, { threshold: [0, 0.3, 0.85] });
+
+// Update active channel info
+function updateActiveChannel(section) {
+  const channelIndex = Array.from(feed.children).indexOf(section);
+  activeChannelIndex = channelIndex;
+  
+  // Update sidebar active state
+  document.querySelectorAll('.channel-item').forEach((item, idx) => {
+    item.classList.toggle('active', idx === channelIndex);
+  });
+  
+  // Update favorite button
+  const channel = channels[channelIndex];
+  const favoriteBtn = document.getElementById('favoriteBtn');
+  const isFavorite = favorites.some(fav => fav.url === channel.url);
+  favoriteBtn.innerHTML = isFavorite ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+  
+  // Update landscape overlay if in landscape mode
+  if (landscapeMode && channel) {
+    document.getElementById('landscapeChannelName').textContent = channel.name;
+    document.getElementById('landscapeChannelDesc').textContent = channel.desc || '';
+  }
+}
+
+// Update stream info display
+function updateStreamInfo(hls, video) {
+  if (!hls || !document.getElementById('infoBtn').classList.contains('active')) return;
+  
+  const bitrate = hls.levels[hls.currentLevel]?.bitrate || 0;
+  const resolution = hls.levels[hls.currentLevel]?.height || 0;
+  const buffered = video.buffered.length > 0 ? video.buffered.end(0) - video.buffered.start(0) : 0;
+  
+  document.getElementById('bitrate').textContent = bitrate ? Math.round(bitrate / 1000) + ' kbps' : '--';
+  document.getElementById('resolution').textContent = resolution ? resolution + 'p' : '--';
+  document.getElementById('buffer').textContent = buffered.toFixed(1) + 's';
+  
+  // Estimate FPS
+  if (!video._lastTime) {
+    video._lastTime = video.currentTime;
+    video._frameCount = 0;
+    setTimeout(() => {
+      const elapsed = video.currentTime - video._lastTime;
+      const fps = video._frameCount / elapsed;
+      document.getElementById('fps').textContent = fps.toFixed(1);
+      video._lastTime = video._frameCount = 0;
+    }, 1000);
+  }
+  video._frameCount++;
+}
+
+// Render channels
+function render(list) {
+  feed.innerHTML = '';
+  activeVideo = null;
+  originalVideo = null;
+
+  list.forEach((c, idx) => {
+    const section = document.createElement('section');
+    section.className = 'channel';
+    section.id = `channel-${idx}`;
+    section.innerHTML = `
+      <video playsinline data-url="${c.url}" poster="${c.poster || ''}"></video>
+      <div class="loading">
+        <div class="loading-text">Loading........</div>
+      </div>
+      <div class="overlay">
+        <span class="live">LIVE</span>
+        <div class="name">${c.name}</div>
+        <div class="desc">${c.desc}</div>
+      </div>`;
+    feed.appendChild(section);
+
+    section._hls = null;
+    observer.observe(section);
+  });
+
+  // Update sidebar
+  updateSidebar(list);
+}
+
+// Update sidebar channel list
+function updateSidebar(list) {
+  const channelList = document.getElementById('channelList');
+  channelList.innerHTML = '';
+  
+  list.forEach((channel, idx) => {
+    const isFavorite = favorites.some(fav => fav.url === channel.url);
+    const item = document.createElement('div');
+    item.className = `channel-item ${idx === activeChannelIndex ? 'active' : ''}`;
+    item.innerHTML = `
+      <div class="live-indicator"></div>
+      <div class="channel-name">${channel.name}</div>
+      <button class="favorite-btn" data-index="${idx}">
+        <i class="${isFavorite ? 'fas' : 'far'} fa-star"></i>
+      </button>
+    `;
+    
+    item.addEventListener('click', () => {
+      // Scroll to channel
+      const sections = feed.querySelectorAll('.channel');
+      if (sections[idx]) {
+        sections[idx].scrollIntoView({ behavior: 'smooth' });
+        toggleSidebar();
+      }
+    });
+    
+    channelList.appendChild(item);
+  });
+  
+  // Add favorite button listeners
+  document.querySelectorAll('.favorite-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index);
+      toggleFavorite(idx);
+    });
+  });
+}
+
+// Toggle favorite
+function toggleFavorite(index) {
+  const channel = channels[index];
+  const favoriteIndex = favorites.findIndex(fav => fav.url === channel.url);
+  
+  if (favoriteIndex === -1) {
+    favorites.push(channel);
+  } else {
+    favorites.splice(favoriteIndex, 1);
+  }
+  
+  localStorage.setItem('tvFavorites', JSON.stringify(favorites));
+  updateSidebar(channels);
+  
+  // Update main favorite button if this is the active channel
+  if (index === activeChannelIndex) {
+    const favoriteBtn = document.getElementById('favoriteBtn');
+    favoriteBtn.innerHTML = favoriteIndex === -1 ? '<i class="fas fa-star"></i>' : '<i class="far fa-star"></i>';
+  }
+}
+
+// Toggle sidebar
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  sidebar.classList.toggle('open');
+}
+
+// Toggle control column
+function toggleControlColumn() {
+  const controlColumn = document.getElementById('controlColumn');
+  const controlToggle = document.getElementById('controlToggle');
+  
+  if (controlColumn.classList.contains('hidden')) {
+    // Show controls
+    controlColumn.classList.remove('hidden');
+    controlToggle.classList.add('hidden');
+    controlColumnVisible = true;
+    startControlAutoHide();
+  } else {
+    // Hide controls
+    controlColumn.classList.add('hidden');
+    controlToggle.classList.remove('hidden');
+    controlColumnVisible = false;
+    clearTimeout(controlAutoHideTimeout);
+  }
+}
+
+// Hide control column (called from the hide button)
+function hideControlColumn() {
+  const controlColumn = document.getElementById('controlColumn');
+  const controlToggle = document.getElementById('controlToggle');
+  
+  controlColumn.classList.add('hidden');
+  controlToggle.classList.remove('hidden');
+  controlColumnVisible = false;
+  clearTimeout(controlAutoHideTimeout);
+}
+
+// Auto-hide control column after inactivity
+function startControlAutoHide() {
+  clearTimeout(controlAutoHideTimeout);
+  controlAutoHideTimeout = setTimeout(() => {
+    if (controlColumnVisible && !document.getElementById('controlColumn').matches(':hover')) {
+      hideControlColumn();
+    }
+  }, 5000);
+}
+
+// Show control column temporarily
+function showControlColumnTemporarily() {
+  if (!controlColumnVisible) {
+    toggleControlColumn();
+    startControlAutoHide();
+  } else {
+    startControlAutoHide();
+  }
+}
+
+// Toggle combined fullscreen/landscape mode
+function toggleFullscreenLandscape() {
+  // Check if we're already in fullscreen
+  if (!document.fullscreenElement) {
+    // Enter fullscreen first
+    document.documentElement.requestFullscreen().then(() => {
+      // After fullscreen, check if we should enter landscape mode
+      if (window.innerHeight > window.innerWidth) {
+        // Portrait orientation, enter landscape mode
+        enterLandscapeMode();
+      }
+      // Update button icon
+      document.getElementById('fullscreenIcon').className = 'fas fa-compress';
+    }).catch(console.log);
+  } else {
+    // We're in fullscreen, check if we're also in landscape mode
+    if (landscapeMode) {
+      exitLandscapeMode();
+    }
+    // Exit fullscreen
+    document.exitFullscreen().then(() => {
+      // Update button icon
+      document.getElementById('fullscreenIcon').className = 'fas fa-expand';
+    }).catch(console.log);
+  }
+}
+
+// Enter landscape mode
+function enterLandscapeMode() {
+  if (!activeVideo) return;
+  
+  landscapeMode = true;
+  
+  // Store original video state
+  originalVideo = activeVideo;
+  const originalSection = originalVideo.closest('.channel');
+  const originalHls = originalSection._hls;
+  
+  // Get channel info
+  const channel = channels[activeChannelIndex];
+  
+  // Create landscape video container
+  const landscapeContainer = document.getElementById('landscapeContainer');
+  landscapeContainer.innerHTML = '';
+  
+  // Clone the video element
+  const landscapeVideo = originalVideo.cloneNode(true);
+  landscapeVideo.id = 'landscapeVideo';
+  landscapeVideo.style.opacity = '1';
+  landscapeVideo.classList.add('playing');
+  landscapeVideo.volume = originalVideo.volume;
+  landscapeVideo.muted = originalVideo.muted;
+  landscapeVideo.currentTime = originalVideo.currentTime;
+  
+  // Add to landscape container
+  landscapeContainer.appendChild(landscapeVideo);
+  
+  // Update landscape overlay
+  document.getElementById('landscapeChannelName').textContent = channel.name;
+  document.getElementById('landscapeChannelDesc').textContent = channel.desc || '';
+  
+  // Show landscape mode
+  document.getElementById('landscapeMode').classList.add('active');
+  
+  // Hide main UI
+  document.getElementById('feed').style.opacity = '0';
+  document.getElementById('controlColumn').classList.add('hidden');
+  document.getElementById('controlToggle').classList.add('hidden');
+  
+  // Transfer HLS instance if exists
+  if (originalHls) {
+    originalHls.detachMedia();
+    originalHls.attachMedia(landscapeVideo);
+    setTimeout(() => {
+      landscapeVideo.play().catch(console.log);
+    }, 100);
+  } else {
+    // For native video
+    landscapeVideo.src = originalVideo.src;
+    setTimeout(() => {
+      landscapeVideo.play().catch(console.log);
+    }, 100);
+  }
+  
+  // Pause original video
+  originalVideo.pause();
+  
+  // Show rotate hint on portrait devices
+  if (window.innerHeight > window.innerWidth) {
+    setTimeout(() => {
+      document.getElementById('rotateHint').classList.add('show');
+    }, 1000);
+  }
+}
+
+// Exit landscape mode
+function exitLandscapeMode() {
+  const landscapeModeEl = document.getElementById('landscapeMode');
+  const landscapeVideo = document.getElementById('landscapeVideo');
+  
+  if (!landscapeMode) return;
+  
+  landscapeMode = false;
+  
+  // Get original video
+  if (originalVideo && landscapeVideo) {
+    // Transfer playback state back
+    const originalSection = originalVideo.closest('.channel');
+    const originalHls = originalSection._hls;
+    
+    if (originalHls) {
+      originalHls.detachMedia();
+      originalHls.attachMedia(originalVideo);
+    }
+    
+    originalVideo.currentTime = landscapeVideo.currentTime;
+    originalVideo.volume = landscapeVideo.volume;
+    originalVideo.muted = landscapeVideo.muted;
+    
+    // Resume original video
+    setTimeout(() => {
+      originalVideo.play().catch(console.log);
+    }, 100);
+  }
+  
+  // Hide landscape mode
+  landscapeModeEl.classList.remove('active');
+  document.getElementById('rotateHint').classList.remove('show');
+  
+  // Show main UI
+  document.getElementById('feed').style.opacity = '1';
+  document.getElementById('controlToggle').classList.remove('hidden');
+  
+  // Clean up landscape video
+  if (landscapeVideo) {
+    landscapeVideo.pause();
+    landscapeVideo.src = '';
+    landscapeVideo.remove();
+  }
+}
+
+// Search functionality
+const searchBar = document.getElementById('searchBar');
+const searchFloat =  document.getElementById('searchInput');
+
+function hideSearch() {
+  searchBar.classList.add('hidden');
+  searchFloat.classList.add('show');
+}
+function showSearch() {
+  searchBar.classList.remove('hidden');
+  searchFloat.classList.remove('show');
+  searchInput.focus();
+  autoHide();
+}
+let hideTimer;
+function autoHide() {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(hideSearch, 12000);
+}
+searchFloat.onclick = showSearch;
+
+searchInput.oninput = () => {
+  const q = searchInput.value.trim().toLowerCase();
+  const filtered = channels.filter(c => 
+    c.name.toLowerCase().includes(q) || 
+    (c.desc && c.desc.toLowerCase().includes(q))
+  );
+  render(filtered);
+};
+
+// Initialize controls
+function initControls() {
+  // Control column toggle
+  const controlToggle = document.getElementById('controlToggle');
+  controlToggle.addEventListener('click', toggleControlColumn);
+  
+  // Hide controls button
+  const hideControlsBtn = document.getElementById('hideControlsBtn');
+  hideControlsBtn.addEventListener('click', hideControlColumn);
+  
+
+  // Volume control
+  const volumeSlider = document.getElementById('volumeSlider');
+  const volumeBtn = document.getElementById('volumeBtn');
+  
+  volumeSlider.value = localStorage.getItem('tvVolume') || '1';
+  
+  volumeSlider.addEventListener('input', (e) => {
+    const volume = parseFloat(e.target.value);
+    if (activeVideo) activeVideo.volume = volume;
+    localStorage.setItem('tvVolume', volume);
+    
+    // Update volume icon
+    if (volume === 0) {
+      volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+    } else if (volume < 0.5) {
+      volumeBtn.innerHTML = '<i class="fas fa-volume-down"></i>';
+    } else {
+      volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+    }
+  });
+  
+  volumeBtn.addEventListener('click', () => {
+    if (activeVideo) {
+      if (activeVideo.volume > 0) {
+        activeVideo.volume = 0;
+        volumeSlider.value = '0';
+        volumeBtn.innerHTML = '<i class="fas fa-volume-mute"></i>';
+      } else {
+        activeVideo.volume = 1;
+        volumeSlider.value = '1';
+        volumeBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+      }
+      localStorage.setItem('tvVolume', activeVideo.volume);
+    }
+  });
+  
+  // Quality selector
+  const qualityBtn = document.getElementById('qualityBtn');
+  const qualityMenu = document.getElementById('qualityMenu');
+  
+  qualityBtn.addEventListener('click', () => {
+    qualityMenu.classList.toggle('show');
+  });
+  
+  document.querySelectorAll('.quality-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.quality-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      
+      if (activeVideo) {
+        const section = activeVideo.closest('.channel');
+        const hls = section._hls;
+        if (hls) {
+          const quality = item.dataset.quality;
+          if (quality === 'auto') {
+            hls.currentLevel = -1;
+          } else {
+            const level = hls.levels.findIndex(level => level.height === parseInt(quality));
+            if (level !== -1) hls.currentLevel = level;
+          }
+        }
+      }
+      
+      qualityMenu.classList.remove('show');
+    });
+  });
+  
+  // Close quality menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!qualityBtn.contains(e.target) && !qualityMenu.contains(e.target)) {
+      qualityMenu.classList.remove('show');
+    }
+  });
+  
+
+  // Combined Fullscreen/Landscape button
+  const fullscreenLandscapeBtn = document.getElementById('fullscreenLandscapeBtn');
+  fullscreenLandscapeBtn.addEventListener('click', toggleFullscreenLandscape);
+  
+  // Landscape mode controls
+  document.getElementById('landscapeExitBtn').addEventListener('click', () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().then(() => {
+        document.getElementById('fullscreenIcon').className = 'fas fa-expand';
+        exitLandscapeMode();
+      }).catch(console.log);
+    } else {
+      exitLandscapeMode();
+    }
+  });
+  
+  document.getElementById('landscapeVolumeBtn').addEventListener('click', () => {
+    const landscapeVideo = document.getElementById('landscapeVideo');
+    if (landscapeVideo) {
+      if (landscapeVideo.volume > 0) {
+        landscapeVideo.volume = 0;
+        document.getElementById('landscapeVolumeBtn').innerHTML = '<i class="fas fa-volume-mute"></i>';
+      } else {
+        landscapeVideo.volume = 1;
+        document.getElementById('landscapeVolumeBtn').innerHTML = '<i class="fas fa-volume-up"></i>';
+      }
+    }
+  });
+  
+  
+  
+  // Theater mode
+  const theaterBtn = document.getElementById('theaterBtn');
+  const theaterModeOverlay = document.getElementById('theaterMode');
+  
+  theaterBtn.addEventListener('click', () => {
+    theaterMode = !theaterMode;
+    theaterBtn.classList.toggle('active', theaterMode);
+    theaterModeOverlay.classList.toggle('active', theaterMode);
+    
+    if (theaterMode && activeVideo) {
+      activeVideo.style.objectFit = 'cover';
+    } else if (activeVideo) {
+      activeVideo.style.objectFit = 'contain';
+    }
+  });
+  
+  // Stream info
+  const infoBtn = document.getElementById('infoBtn');
+  const streamInfo = document.getElementById('streamInfo');
+  
+  infoBtn.addEventListener('click', () => {
+    infoBtn.classList.toggle('active');
+    streamInfo.classList.toggle('show');
+  });
+  
+  // Sleep timer
+  const sleepBtn = document.getElementById('sleepBtn');
+  const sleepTimerPanel = document.getElementById('sleepTimer');
+  const cancelTimerBtn = document.getElementById('cancelTimer');
+  
+  sleepBtn.addEventListener('click', () => {
+    sleepTimerPanel.classList.toggle('show');
+  });
+  
+  document.querySelectorAll('.timer-btn[data-minutes]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const minutes = parseInt(btn.dataset.minutes);
+      setSleepTimer(minutes);
+      sleepTimerPanel.classList.remove('show');
+    });
+  });
+  
+  document.getElementById('setCustomTimer').addEventListener('click', () => {
+    const minutes = parseInt(document.getElementById('customTimer').value);
+    if (minutes > 0) {
+      setSleepTimer(minutes);
+      sleepTimerPanel.classList.remove('show');
+    }
+  });
+  
+  cancelTimerBtn.addEventListener('click', () => {
+    clearTimeout(sleepTimer);
+    sleepTimer = null;
+    sleepTimerPanel.classList.remove('show');
+    showNotification('Sleep timer cancelled');
+  });
+  
+  // Share channel
+  const shareBtn = document.getElementById('shareBtn');
+  shareBtn.addEventListener('click', () => {
+    if (navigator.share && channels[activeChannelIndex]) {
+      const channel = channels[activeChannelIndex];
+      navigator.share({
+        title: `Watch ${channel.name} Live`,
+        text: channel.desc,
+        url: window.location.href + '#channel-' + activeChannelIndex
+      }).catch(console.log);
+    } else {
+      // Fallback copy to clipboard
+      const channel = channels[activeChannelIndex];
+      navigator.clipboard.writeText(`Check out ${channel.name}: ${window.location.href}#channel-${activeChannelIndex}`);
+      showNotification('Link copied to clipboard!');
+    }
+  });
+  
+  // Favorite button
+  const favoriteBtn = document.getElementById('favoriteBtn');
+  favoriteBtn.addEventListener('click', () => {
+    toggleFavorite(activeChannelIndex);
+  });
+  
+  // Sidebar toggle
+  const sidebarBtn = document.getElementById('sidebarBtn');
+  sidebarBtn.addEventListener('click', toggleSidebar);
+  
+  // Fullscreen change events
+  document.addEventListener('fullscreenchange', () => {
+    const fullscreenIcon = document.getElementById('fullscreenIcon');
+    if (document.fullscreenElement) {
+      fullscreenIcon.className = 'fas fa-compress';
+      // Check if we should enter landscape mode in portrait orientation
+      if (window.innerHeight > window.innerWidth && !landscapeMode) {
+        enterLandscapeMode();
+      }
+    } else {
+      fullscreenIcon.className = 'fas fa-expand';
+      // Exit landscape mode if we're in it
+      if (landscapeMode) {
+        exitLandscapeMode();
+      }
+    }
+  });
+  
+
+  // Close sidebar when clicking outside
+  document.addEventListener('click', (e) => {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar.classList.contains('open') && 
+        !sidebar.contains(e.target) && 
+        !e.target.closest('#sidebarBtn')) {
+      sidebar.classList.remove('open');
+    }
+  });
+  
+  // Close sleep timer when clicking outside
+  document.addEventListener('click', (e) => {
+    const sleepTimerPanel = document.getElementById('sleepTimer');
+    if (sleepTimerPanel.classList.contains('show') && 
+        !sleepTimerPanel.contains(e.target) && 
+        !e.target.closest('#sleepBtn')) {
+      sleepTimerPanel.classList.remove('show');
+    }
+  });
+  
+  // Handle orientation change
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      if (landscapeMode && window.innerHeight > window.innerWidth) {
+        // Portrait mode, show rotate hint
+        document.getElementById('rotateHint').classList.add('show');
+      } else {
+        // Landscape mode, hide rotate hint
+        document.getElementById('rotateHint').classList.remove('show');
+      }
+    }, 300);
+  });
+  
+  // Handle escape key to exit fullscreen/landscape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (landscapeMode) {
+        exitLandscapeMode();
+      }
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    }
+  });
+}
+
+// Set sleep timer
+function setSleepTimer(minutes) {
+  clearTimeout(sleepTimer);
+  
+  sleepTimer = setTimeout(() => {
+    if (activeVideo) {
+      activeVideo.pause();
+      showNotification(`Sleep timer: Player paused after ${minutes} minutes`);
+    }
+  }, minutes * 60000);
+  
+  showNotification(`Sleep timer set for ${minutes} minutes`);
+}
+
+// Show notification
+function showNotification(message) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position:fixed;
+    top:80px;
+    left:50%;
+    transform:translateX(-50%);
+    background:rgba(0,20,40,0.9);
+    color:#0ff;
+    padding:12px 24px;
+    border-radius:30px;
+    z-index:9999;
+    backdrop-filter:blur(10px);
+    border:1px solid rgba(0,255,255,0.3);
+    box-shadow:0 5px 25px rgba(0,255,255,0.3);
+    animation:fadeInOut 3s ease;
+  `;
+  
+  document.head.insertAdjacentHTML('beforeend', `
+    <style>
+      @keyframes fadeInOut {
+        0%,100% { opacity:0; transform:translateX(-50%) translateY(-20px); }
+        20%,80% { opacity:1; transform:translateX(-50%) translateY(0); }
+      }
+    </style>
+  `);
+  
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => notification.remove(), 3000);
+}
+
+// Load channels
+fetch('channels.json')
+  .then(res => res.json())
+  .then(data => {
+    channels = data;
+    render(channels);
+    initControls();
+    autoHide();
+    
+    // Show control column initially for 3 seconds
+    setTimeout(() => {
+      if (controlColumnVisible) {
+        startControlAutoHide();
+      }
+    }, 3000);
+  })
+  .catch(err => console.error('Failed to load channels.json', err));
+
+// Load message
+fetch('message.json')
+  .then(res => res.json())
+  .then(msg => {
+    if (msg.enabled) {
+      document.getElementById('pTitle').textContent = msg.title || '';
+      document.getElementById('pText').textContent = msg.message || '';
+      document.getElementById('pBtn').textContent = msg.button || 'Close';
+
+      const popupContainer = document.querySelector('#popup > div');
+      popupContainer.className = '';
+      if (msg.type === 'warning') popupContainer.classList.add('popup-warning');
+      else if (msg.type === 'error') popupContainer.classList.add('popup-error');
+
+      document.getElementById('popup').style.display = 'flex';
+    }
+  })
+  .catch(() => {});
+
+document.getElementById('pBtn').onclick = () => {
+  document.getElementById('popup').style.display = 'none';
+};
+
+// Handle hash navigation
+window.addEventListener('hashchange', () => {
+  const hash = window.location.hash;
+  if (hash.startsWith('#channel-')) {
+    const index = parseInt(hash.replace('#channel-', ''));
+    if (!isNaN(index) && channels[index]) {
+      const sections = feed.querySelectorAll('.channel');
+      if (sections[index]) {
+        sections[index].scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }
+});
+
+// Initial hash check
+if (window.location.hash) {
+  setTimeout(() => {
+    window.dispatchEvent(new Event('hashchange'));
+  }, 500);
+}
+</script>
+</body>
+</html>
